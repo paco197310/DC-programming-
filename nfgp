@@ -1,0 +1,200 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": []
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "code",
+      "source": [
+        "import numpy as np\n",
+        "from scipy.optimize import minimize\n",
+        "from sklearn.model_selection import train_test_split\n",
+        "from sklearn.preprocessing import StandardScaler\n",
+        "import tensorflow as tf"
+      ],
+      "metadata": {
+        "id": "6SmXsb786rnQ"
+      },
+      "execution_count": 24,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 25,
+      "metadata": {
+        "id": "Si2jH1oo0Rmh",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "e650625e-30e3-49af-d96a-5cc18a84516e"
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Optimal solution: [0.49999992 0.49999994 0.49999995]\n"
+          ]
+        }
+      ],
+      "source": [
+        "# Define the convex and concave functions\n",
+        "def convex_function(x):\n",
+        "    return np.sum(np.square(x))\n",
+        "\n",
+        "def concave_function(x):\n",
+        "    return np.sum(np.abs(x))\n",
+        "\n",
+        "# Define the overall objective function as the difference\n",
+        "def objective_function(x):\n",
+        "    return convex_function(x) - concave_function(x)\n",
+        "\n",
+        "# Initial guess\n",
+        "x0 = np.array([1, 2, 3])\n",
+        "\n",
+        "# DC programming using SciPy\n",
+        "result = minimize(objective_function, x0, method='BFGS')\n",
+        "print(\"Optimal solution:\", result.x)"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Random sample data\n",
+        "num_samples = 1000\n",
+        "input_size = 20\n",
+        "num_classes = 5\n",
+        "\n",
+        "# Generate random input features\n",
+        "X = np.random.randn(num_samples, input_size)\n",
+        "\n",
+        "# Generate random class labels\n",
+        "y = np.random.randint(0, num_classes, size=num_samples)\n",
+        "\n",
+        "# One-hot encode the class labels\n",
+        "y_one_hot = np.eye(num_classes)[y]\n",
+        "\n",
+        "# Split the data into training and validation sets\n",
+        "x_train, x_val, y_train, y_val = train_test_split(X, y_one_hot, test_size=0.2, random_state=42)\n",
+        "\n",
+        "# Standardize the input features\n",
+        "scaler = StandardScaler()\n",
+        "x_train = scaler.fit_transform(x_train)\n",
+        "x_val = scaler.transform(x_val)\n",
+        "\n",
+        "print(\"Shapes of training data:\")\n",
+        "print(\"x_train:\", x_train.shape)\n",
+        "print(\"y_train:\", y_train.shape)\n",
+        "print(\"Shapes of validation data:\")\n",
+        "print(\"x_val:\", x_val.shape)\n",
+        "print(\"y_val:\", y_val.shape)\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "RMKcRqYp5zaY",
+        "outputId": "69afc369-efdc-4c70-8592-ee5fea8b82d8"
+      },
+      "execution_count": 26,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Shapes of training data:\n",
+            "x_train: (800, 20)\n",
+            "y_train: (800, 5)\n",
+            "Shapes of validation data:\n",
+            "x_val: (200, 20)\n",
+            "y_val: (200, 5)\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "def create_neural_network():\n",
+        "    model = tf.keras.Sequential([\n",
+        "        tf.keras.layers.Dense(128, activation='relu', input_shape=(input_size,)),\n",
+        "        tf.keras.layers.Dense(64, activation='relu'),\n",
+        "        tf.keras.layers.Dense(num_classes, activation='softmax')\n",
+        "    ])\n",
+        "    return model\n",
+        "\n",
+        "def custom_loss(y_true, y_pred):\n",
+        "    # Convex part of the loss function\n",
+        "    convex_loss = tf.keras.losses.categorical_crossentropy(y_true, y_pred)\n",
+        "    # Concave part of the loss function (e.g., L2 regularization term)\n",
+        "    concave_loss = tf.reduce_sum([tf.reduce_sum(tf.square(var)) for var in model.trainable_variables])\n",
+        "\n",
+        "    return convex_loss + lambda_param * concave_loss  # lambda_param is a hyperparameter\n",
+        "\n",
+        "model = create_neural_network()\n",
+        "\n",
+        "lambda_param = 0.001\n",
+        "model.compile(optimizer='adam', loss=custom_loss, metrics=['accuracy'])\n",
+        "\n",
+        "model.fit(x_train, y_train, epochs=10, batch_size=4)\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "1ryyNkqJ2pN3",
+        "outputId": "f18c0cdc-d978-48d3-a6ba-0fa532edb783"
+      },
+      "execution_count": 27,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Epoch 1/10\n",
+            "200/200 [==============================] - 2s 4ms/step - loss: 1.7747 - accuracy: 0.1937\n",
+            "Epoch 2/10\n",
+            "200/200 [==============================] - 1s 4ms/step - loss: 1.6658 - accuracy: 0.3013\n",
+            "Epoch 3/10\n",
+            "200/200 [==============================] - 1s 3ms/step - loss: 1.6094 - accuracy: 0.3688\n",
+            "Epoch 4/10\n",
+            "200/200 [==============================] - 1s 4ms/step - loss: 1.5475 - accuracy: 0.4050\n",
+            "Epoch 5/10\n",
+            "200/200 [==============================] - 1s 4ms/step - loss: 1.4963 - accuracy: 0.4613\n",
+            "Epoch 6/10\n",
+            "200/200 [==============================] - 1s 5ms/step - loss: 1.4404 - accuracy: 0.4888\n",
+            "Epoch 7/10\n",
+            "200/200 [==============================] - 1s 5ms/step - loss: 1.3716 - accuracy: 0.5387\n",
+            "Epoch 8/10\n",
+            "200/200 [==============================] - 2s 9ms/step - loss: 1.3144 - accuracy: 0.5900\n",
+            "Epoch 9/10\n",
+            "200/200 [==============================] - 1s 5ms/step - loss: 1.2461 - accuracy: 0.6150\n",
+            "Epoch 10/10\n",
+            "200/200 [==============================] - 1s 3ms/step - loss: 1.1804 - accuracy: 0.6550\n"
+          ]
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "<keras.src.callbacks.History at 0x7aedc600fb20>"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 27
+        }
+      ]
+    }
+  ]
+}
